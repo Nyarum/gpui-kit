@@ -154,18 +154,34 @@ impl MessageScrollerState {
         true
     }
 
-    /// Scroll to the row at `index`, if it exists.
+    /// Pause tail following and scroll to the row at `index`, if it exists.
     pub fn scroll_to_item(&mut self, index: usize, cx: &mut Context<Self>) -> bool {
         if index >= self.list_state.item_count() {
             return false;
         }
 
+        // Explicit navigation is a reading anchor, even if this short list is
+        // currently clamped to the bottom. Later row growth must not hide it.
+        self.list_state.set_follow_mode(FollowMode::Normal);
         self.list_state.scroll_to(ListOffset {
             item_ix: index,
             offset_in_item: px(0.),
         });
         cx.notify();
         true
+    }
+
+    /// Scroll one viewport up or down, as Page Up/Page Down do.
+    ///
+    /// Like a wheel scroll: scrolling up pauses tail following, and the list
+    /// resumes following once a later layout reaches the bottom.
+    pub fn scroll_page(&mut self, up: bool, cx: &mut Context<Self>) {
+        let page = self.list_state.viewport_bounds().size.height;
+        if page <= px(0.) {
+            return;
+        }
+        self.list_state.scroll_by(if up { -page } else { page });
+        cx.notify();
     }
 
     /// Resume tail following and scroll to the latest row.
